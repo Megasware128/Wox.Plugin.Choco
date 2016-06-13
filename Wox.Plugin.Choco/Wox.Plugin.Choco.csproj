@@ -9,7 +9,7 @@
     <AppDesignerFolder>Properties</AppDesignerFolder>
     <RootNamespace>Wox.Plugin.Choco</RootNamespace>
     <AssemblyName>Wox.Plugin.Choco</AssemblyName>
-    <TargetFrameworkVersion>v3.5</TargetFrameworkVersion>
+    <TargetFrameworkVersion>v4.5.2</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
     <TargetFrameworkProfile>
     </TargetFrameworkProfile>
@@ -22,6 +22,7 @@
     <DefineConstants>DEBUG;TRACE</DefineConstants>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
+    <Prefer32Bit>false</Prefer32Bit>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
     <DebugType>pdbonly</DebugType>
@@ -30,6 +31,7 @@
     <DefineConstants>TRACE</DefineConstants>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
+    <Prefer32Bit>false</Prefer32Bit>
   </PropertyGroup>
   <ItemGroup>
     <Reference Include="System" />
@@ -37,17 +39,14 @@
     <Reference Include="System.Data.Services.Client" />
     <Reference Include="System.Runtime.Serialization" />
     <Reference Include="System.ServiceModel" />
-    <Reference Include="System.Threading, Version=1.0.2856.102, Culture=neutral, PublicKeyToken=31bf3856ad364e35, processorArchitecture=MSIL">
-      <HintPath>..\packages\TaskParallelLibrary.1.0.2856.0\lib\Net35\System.Threading.dll</HintPath>
-      <Private>True</Private>
-    </Reference>
     <Reference Include="System.Xml.Linq" />
     <Reference Include="System.Data.DataSetExtensions" />
     <Reference Include="System.Data" />
     <Reference Include="System.Xml" />
     <Reference Include="WindowsBase" />
-    <Reference Include="Wox.Plugin">
-      <HintPath>..\packages\Wox.Plugin.1.1.1.426\lib\net35\Wox.Plugin.dll</HintPath>
+    <Reference Include="Wox.Plugin, Version=1.2.0.486, Culture=neutral, processorArchitecture=MSIL">
+      <HintPath>..\packages\Wox.Plugin.1.2.0.486\lib\net35\Wox.Plugin.dll</HintPath>
+      <Private>True</Private>
     </Reference>
   </ItemGroup>
   <ItemGroup>
@@ -58,11 +57,6 @@
     <Compile Include="Parameters.cs" />
     <Compile Include="Partials\ChocoReference.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
-    <Compile Include="Service References\ChocoReference\Reference.cs">
-      <AutoGen>True</AutoGen>
-      <DesignTime>True</DesignTime>
-      <DependentUpon>Reference.datasvcmap</DependentUpon>
-    </Compile>
     <Compile Include="Web.cs" />
   </ItemGroup>
   <ItemGroup>
@@ -81,7 +75,6 @@
     </Content>
     <None Include="Service References\ChocoReference\Reference.datasvcmap">
       <Generator>DataServicesCoreClientGenerator</Generator>
-      <LastGenOutput>Reference.cs</LastGenOutput>
     </None>
   </ItemGroup>
   <ItemGroup>
