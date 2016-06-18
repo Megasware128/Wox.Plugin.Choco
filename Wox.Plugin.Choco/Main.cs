@@ -2,119 +2,240 @@
 using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Drawing.Imaging;
 using System.IO;
 using System.Linq;
+using System.Net.Http;
 using System.Text;
-using Wox.Plugin.Choco.ChocoReference;
-using Wox.Plugin.Choco.Extensions;
+using System.Threading.Tasks;
+using chocolatey;
+using chocolatey.infrastructure.results;
+using Svg;
 
 namespace Wox.Plugin.Choco
 {
     public class Main : IPlugin
     {
-        private PluginInitContext context { get; set; }
+        private const string InstallCommand = "install";
+        private const string UninstallCommand = "uninstall";
+        private const string searchCommand = "search";
+
+        private string tempPath = Path.GetTempPath();
+
+        private PluginInitContext context;
 
         public List<Result> Query(Query query)
         {
-            var filter = string.Join(" ", query.ActionParameters.ToArray());
-            var queryResults = Web.Query(filter);
-            var downloadResults = Web.DownloadFiles(queryResults.Select(r => r.ToDownloadFileInformation()));
-            var joinResults = queryResults.FullOuterJoin(downloadResults, 
-                                                         q => q.Id, 
-                                                         d => d.id,
-                                                         (a, b, id) => new { package = a, result = b },
-                                                         null, 
-                                                         null)
-                                           .OrderByDescending(j => j.package.DownloadCount)
-                                           .ToList();
-            return joinResults.Select(j => CreatePackageListItem(j.package, j.result)).ToList();
+            return QueryAsync(query).GetAwaiter().GetResult();
+
+            //var filter = string.Join(" ", query.ActionParameters.ToArray());
+            //var queryResults = Web.Query(filter);
+            //var downloadResults = Web.DownloadFiles(queryResults.Select(r => r.ToDownloadFileInformation()));
+            //var joinResults = queryResults.FullOuterJoin(downloadResults,
+            //                                             q => q.Id,
+            //                                             d => d.id,
+            //                                             (a, b, id) => new { package = a, result = b },
+            //                                             null,
+            //                                             null)
+            //                               .OrderByDescending(j => j.package.DownloadCount)
+            //                               .ToList();
+            //return joinResults.Select(j => CreatePackageListItem(j.package, j.result)).ToList();
         }
 
-        public static Result CreatePackageListItem(V2FeedPackage package, Web.DownloadFileStatus downloadStatus = null)
+        private async Task<List<Result>> QueryAsync(Query query)
         {
-            var icoPath = downloadStatus == null || !downloadStatus.Status ? Parameters.DefaultIconPath : downloadStatus.FilePath;
+            List<Result> results = new List<Result>();
 
-            return new Result
+            if (string.IsNullOrEmpty(query.Search))
             {
-                IcoPath = icoPath,
-                Title = package.Title,
-                SubTitle = string.Concat(package.Version, " - ", package.Description.Replace("\n", "")),
-                ContextMenu = Lists.Of(CreateUnistallResult(package, icoPath)),
-                Action = (c) =>
+                results.Add(ResultForInstallCommandAutoComplete(query));
+                results.Add(ResultForUninstallCommandAutoComplete(query));
+                return results;
+            }
+
+            string command = query.FirstSearch.ToLower();
+            if (string.IsNullOrEmpty(command)) return results;
+
+            if (command == UninstallCommand)
+            {
+                return await ResultForUnInstallPackage(query);
+            }
+            if (command == InstallCommand)
+            {
+                return await ResultForInstallPackage(query);
+            }
+
+            if (InstallCommand.Contains(command))
+            {
+                results.Add(ResultForInstallCommandAutoComplete(query));
+            }
+            if (UninstallCommand.Contains(command))
+            {
+                results.Add(ResultForUninstallCommandAutoComplete(query));
+            }
+
+            return results;
+        }
+
+        private async Task<List<Result>> ResultForInstallPackage(Query query)
+        {
+            List<Result> results = new List<Result>();
+
+            string packageName = query.SecondSearch;
+            if (string.IsNullOrEmpty(packageName)) return results;
+
+            var packages = Lets.GetChocolatey().Set(config =>
+            {
+                config.CommandName = searchCommand;
+                config.Input = packageName;
+            }).List<PackageResult>().Take(17);
+
+            foreach (var package in packages)
+            {
+                var iconUrlString = package.Package.IconUrl.ToString();
+                string iconPath;
+                if (string.IsNullOrEmpty(iconUrlString))
+                    iconPath = context.CurrentPluginMetadata.IcoPath;
+                else
                 {
-                    Install(package.Id);
-                    return true;
+                    var extension = iconUrlString.Substring(iconUrlString.LastIndexOf('.'));
+                    iconPath = tempPath + package.Name + package.Version + extension;
+                    if ((!File.Exists(iconPath) && extension != ".svg") || (extension == ".svg" && !File.Exists(iconPath.Replace(extension, ".png"))))
+                    {
+                        using (var client = new HttpClient())
+                        {
+                            try
+                            {
+                                using (var stream = await client.GetStreamAsync(package.Package.IconUrl))
+                                {
+                                    if (extension != ".svg")
+                                        using (var fileStream = new FileStream(iconPath, FileMode.CreateNew))
+                                            await stream.CopyToAsync(fileStream);
+                                    else
+                                        SvgDocument.Open<SvgDocument>(stream).Draw().Save(iconPath = iconPath.Replace(extension, ".png"));
+                                }
+                            }
+                            catch (HttpRequestException)
+                            {
+                                iconPath = context.CurrentPluginMetadata.IcoPath;
+                            }
+                        }
+                    }
+                    else if (extension == ".svg")
+                        iconPath = iconPath.Replace(extension, ".png");
+                }
+                results.Add(new Result
+                {
+                    Title = package.Package.Title,
+                    SubTitle = package.Package.Summary,
+                    IcoPath = iconPath,
+                    Action = e =>
+                    {
+                        return true;
+                    }
+                });
+            }
+
+            return results;
+        }
+
+        private async Task<List<Result>> ResultForUnInstallPackage(Query query)
+        {
+            List<Result> results = new List<Result>();
+
+            string packageName = query.SecondSearch;
+            if (string.IsNullOrEmpty(packageName)) return results;
+
+            var packages = Lets.GetChocolatey().Set(config =>
+            {
+                config.CommandName = searchCommand;
+                config.Input = packageName;
+                config.ListCommand.LocalOnly = true;
+            }).List<PackageResult>().Take(17);
+
+            foreach (var package in packages)
+            {
+                var iconUrlString = package.Package.IconUrl.ToString();
+                string iconPath;
+                if (string.IsNullOrEmpty(iconUrlString))
+                    iconPath = context.CurrentPluginMetadata.IcoPath;
+                else
+                {
+                    var extension = iconUrlString.Substring(iconUrlString.LastIndexOf('.'));
+                    iconPath = tempPath + package.Name + package.Version + extension;
+                    if ((!File.Exists(iconPath) && extension != ".svg") || (extension == ".svg" && !File.Exists(iconPath.Replace(extension, ".png"))))
+                    {
+                        using (var client = new HttpClient())
+                        {
+                            try
+                            {
+                                using (var stream = await client.GetStreamAsync(package.Package.IconUrl))
+                                {
+                                    if (extension != ".svg")
+                                        using (var fileStream = new FileStream(iconPath, FileMode.CreateNew))
+                                            await stream.CopyToAsync(fileStream);
+                                    else
+                                        SvgDocument.Open<SvgDocument>(stream).Draw().Save(iconPath = iconPath.Replace(extension, ".png"));
+                                }
+                            }
+                            catch (HttpRequestException)
+                            {
+                                iconPath = context.CurrentPluginMetadata.IcoPath;
+                            }
+                        }
+                    }
+                    else if (extension == ".svg")
+                        iconPath = iconPath.Replace(extension, ".png");
+                }
+                results.Add(new Result
+                {
+                    Title = package.Package.Title,
+                    SubTitle = package.Package.Summary,
+                    IcoPath = iconPath,
+                    Action = e =>
+                    {
+                        return true;
+                    }
+                });
+            }
+
+            return results;
+        }
+
+        private Result ResultForInstallCommandAutoComplete(Query query)
+        {
+            string title = $"{InstallCommand} <Package Name>";
+            string subtitle = "install package";
+            return ResultForCommand(query, InstallCommand, title, subtitle);
+        }
+
+        private Result ResultForUninstallCommandAutoComplete(Query query)
+        {
+            string title = $"{UninstallCommand} <Package Name>";
+            string subtitle = "uninstall package";
+            return ResultForCommand(query, UninstallCommand, title, subtitle);
+        }
+
+        private Result ResultForCommand(Query query, string command, string title, string subtitle)
+        {
+            string choco = query.ActionKeyword;
+            const string seperater = Plugin.Query.TermSeperater;
+            var result = new Result
+            {
+                Title = title,
+                IcoPath = "Images\\icon.png",
+                SubTitle = subtitle,
+                Action = e =>
+                {
+                    context.API.ChangeQuery($"{choco}{seperater}{command}{seperater}");
+                    return false;
                 }
             };
+            return result;
         }
-
-        private static Result CreateUnistallResult(V2FeedPackage package, string icoPath)
-        {
-            return new Result
-            {
-                Title = "Uninstall " + package.Title,
-                IcoPath = icoPath,
-                Action = (c) =>
-                {
-                    Uninstall(package.Id);
-                    return true;
-                }
-            };
-        }
-
-        public static void Install(string packageTitle)
-        {
-            var psi = new ProcessStartInfo("choco", string.Format("install {0}", packageTitle))
-            {
-                UseShellExecute = true,
-                CreateNoWindow = true,
-                Verb = "runas"
-            };
-
-            try
-            {
-                Process.Start(psi);
-            }
-            catch (Exception)
-            {
-                
-            }
-        }
-
-        public static void Uninstall(string packageTitle)
-        {
-            var psi = new ProcessStartInfo("choco", string.Format("uninstall {0}", packageTitle))
-            {
-                UseShellExecute = true,
-                CreateNoWindow = true,
-                Verb = "runas"
-            };
-
-            try
-            {
-                Process.Start(psi);
-            }
-            catch (Exception)
-            {
-
-            }
-        }
-
         public void Init(PluginInitContext context)
         {
             this.context = context;
-        }
-
-        public IEnumerable<string> ReadLines(StreamReader streamProvider)
-        {
-            using (var reader = streamProvider)
-            {
-                string line;
-                while ((line = reader.ReadLine()) != null)
-                {
-                    yield return line;
-                }
-            }
         }
     }
 }
