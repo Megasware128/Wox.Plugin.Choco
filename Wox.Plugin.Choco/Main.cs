@@ -84,8 +84,13 @@ namespace Wox.Plugin.Choco
                 config.CommandName = searchCommand;
                 config.Input = query.SecondSearch;
                 config.ListCommand.OrderByPopularity = true;
-            }, 10, e =>
+            }, 10, (c, p) =>
             {
+                Lets.GetChocolatey().Set(config =>
+                {
+                    config.CommandName = InstallCommand;
+                    config.PackageNames = p.Name;
+                }).Run();
                 return true;
             });
         }
@@ -97,13 +102,18 @@ namespace Wox.Plugin.Choco
                 config.CommandName = searchCommand;
                 config.Input = query.SecondSearch;
                 config.ListCommand.LocalOnly = true;
-            }, 10, e =>
+            }, 10, (c, p) =>
             {
+                Lets.GetChocolatey().Set(config =>
+                {
+                    config.CommandName = UninstallCommand;
+                    config.PackageNames = p.Name;
+                }).Run();
                 return true;
             });
         }
 
-        private async Task<List<Result>> ChocolateyResults(Action<chocolatey.infrastructure.app.configuration.ChocolateyConfiguration> propConfig, int count, Func<ActionContext, bool> action)
+        private async Task<List<Result>> ChocolateyResults(Action<chocolatey.infrastructure.app.configuration.ChocolateyConfiguration> propConfig, int count, Func<ActionContext, PackageResult, bool> action)
         {
             List<Result> results = new List<Result>();
 
@@ -142,7 +152,8 @@ namespace Wox.Plugin.Choco
                     Title = package.Package.Title,
                     SubTitle = $"{package.Version} - {package.Package.Summary}",
                     IcoPath = iconPath,
-                    Action = action
+                    ContextData = package,
+                    Action = c => action(c, package)
                 });
             }
 
