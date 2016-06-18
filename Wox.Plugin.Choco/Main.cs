@@ -79,79 +79,35 @@ namespace Wox.Plugin.Choco
 
         private async Task<List<Result>> ResultForInstallPackage(Query query)
         {
-            List<Result> results = new List<Result>();
-
-            string packageName = query.SecondSearch;
-            if (string.IsNullOrEmpty(packageName)) return results;
-
-            var packages = Lets.GetChocolatey().Set(config =>
+            return await ChocolateyResults(config =>
             {
                 config.CommandName = searchCommand;
-                config.Input = packageName;
-            }).List<PackageResult>().Take(17);
-
-            foreach (var package in packages)
+                config.Input = query.SecondSearch;
+                config.ListCommand.OrderByPopularity = true;
+            }, 10, e =>
             {
-                var iconUrlString = package.Package.IconUrl.ToString();
-                string iconPath;
-                if (string.IsNullOrEmpty(iconUrlString))
-                    iconPath = context.CurrentPluginMetadata.IcoPath;
-                else
-                {
-                    var extension = iconUrlString.Substring(iconUrlString.LastIndexOf('.'));
-                    iconPath = tempPath + package.Name + package.Version + extension;
-                    if ((!File.Exists(iconPath) && extension != ".svg") || (extension == ".svg" && !File.Exists(iconPath.Replace(extension, ".png"))))
-                    {
-                        using (var client = new HttpClient())
-                        {
-                            try
-                            {
-                                using (var stream = await client.GetStreamAsync(package.Package.IconUrl))
-                                {
-                                    if (extension != ".svg")
-                                        using (var fileStream = new FileStream(iconPath, FileMode.CreateNew))
-                                            await stream.CopyToAsync(fileStream);
-                                    else
-                                        SvgDocument.Open<SvgDocument>(stream).Draw().Save(iconPath = iconPath.Replace(extension, ".png"));
-                                }
-                            }
-                            catch (HttpRequestException)
-                            {
-                                iconPath = context.CurrentPluginMetadata.IcoPath;
-                            }
-                        }
-                    }
-                    else if (extension == ".svg")
-                        iconPath = iconPath.Replace(extension, ".png");
-                }
-                results.Add(new Result
-                {
-                    Title = package.Package.Title,
-                    SubTitle = package.Package.Summary,
-                    IcoPath = iconPath,
-                    Action = e =>
-                    {
-                        return true;
-                    }
-                });
-            }
-
-            return results;
+                return true;
+            });
         }
 
         private async Task<List<Result>> ResultForUnInstallPackage(Query query)
         {
-            List<Result> results = new List<Result>();
-
-            string packageName = query.SecondSearch;
-            if (string.IsNullOrEmpty(packageName)) return results;
-
-            var packages = Lets.GetChocolatey().Set(config =>
+            return await ChocolateyResults(config =>
             {
                 config.CommandName = searchCommand;
-                config.Input = packageName;
+                config.Input = query.SecondSearch;
                 config.ListCommand.LocalOnly = true;
-            }).List<PackageResult>().Take(17);
+            }, 10, e =>
+            {
+                return true;
+            });
+        }
+
+        private async Task<List<Result>> ChocolateyResults(Action<chocolatey.infrastructure.app.configuration.ChocolateyConfiguration> propConfig, int count, Func<ActionContext, bool> action)
+        {
+            List<Result> results = new List<Result>();
+
+            IEnumerable<PackageResult> packages = Lets.GetChocolatey().Set(propConfig).List<PackageResult>().Take(count);
 
             foreach (var package in packages)
             {
@@ -164,38 +120,29 @@ namespace Wox.Plugin.Choco
                     var extension = iconUrlString.Substring(iconUrlString.LastIndexOf('.'));
                     iconPath = tempPath + package.Name + package.Version + extension;
                     if ((!File.Exists(iconPath) && extension != ".svg") || (extension == ".svg" && !File.Exists(iconPath.Replace(extension, ".png"))))
-                    {
                         using (var client = new HttpClient())
-                        {
                             try
                             {
                                 using (var stream = await client.GetStreamAsync(package.Package.IconUrl))
-                                {
                                     if (extension != ".svg")
                                         using (var fileStream = new FileStream(iconPath, FileMode.CreateNew))
                                             await stream.CopyToAsync(fileStream);
                                     else
                                         SvgDocument.Open<SvgDocument>(stream).Draw().Save(iconPath = iconPath.Replace(extension, ".png"));
-                                }
                             }
                             catch (HttpRequestException)
                             {
                                 iconPath = context.CurrentPluginMetadata.IcoPath;
                             }
-                        }
-                    }
                     else if (extension == ".svg")
                         iconPath = iconPath.Replace(extension, ".png");
                 }
                 results.Add(new Result
                 {
                     Title = package.Package.Title,
-                    SubTitle = package.Package.Summary,
+                    SubTitle = $"{package.Version} - {package.Package.Summary}",
                     IcoPath = iconPath,
-                    Action = e =>
-                    {
-                        return true;
-                    }
+                    Action = action
                 });
             }
 
