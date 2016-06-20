@@ -27,19 +27,6 @@ namespace Wox.Plugin.Choco
         public List<Result> Query(Query query)
         {
             return QueryAsync(query).GetAwaiter().GetResult();
-
-            //var filter = string.Join(" ", query.ActionParameters.ToArray());
-            //var queryResults = Web.Query(filter);
-            //var downloadResults = Web.DownloadFiles(queryResults.Select(r => r.ToDownloadFileInformation()));
-            //var joinResults = queryResults.FullOuterJoin(downloadResults,
-            //                                             q => q.Id,
-            //                                             d => d.id,
-            //                                             (a, b, id) => new { package = a, result = b },
-            //                                             null,
-            //                                             null)
-            //                               .OrderByDescending(j => j.package.DownloadCount)
-            //                               .ToList();
-            //return joinResults.Select(j => CreatePackageListItem(j.package, j.result)).ToList();
         }
 
         private async Task<List<Result>> QueryAsync(Query query)
