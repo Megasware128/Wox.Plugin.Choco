@@ -1,8 +1,6 @@
 ﻿using System;
-using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics;
-using System.Drawing.Imaging;
 using System.IO;
 using System.Linq;
 using System.Net.Http;
@@ -10,6 +8,7 @@ using System.Reflection;
 using System.Text;
 using System.Threading.Tasks;
 using chocolatey;
+using chocolatey.infrastructure.app.configuration;
 using chocolatey.infrastructure.results;
 using Svg;
 
@@ -19,7 +18,7 @@ namespace Wox.Plugin.Choco
     {
         private const string InstallCommand = "install";
         private const string UninstallCommand = "uninstall";
-        private const string searchCommand = "search";
+        private const string SearchCommand = "search";
 
         private static readonly string tempPath = Path.GetTempPath();
         private static readonly string shieldIconPath = $@"{tempPath}\Shield.png";
@@ -88,7 +87,7 @@ namespace Wox.Plugin.Choco
         {
             return await ChocolateyResults(config =>
             {
-                config.CommandName = searchCommand;
+                config.CommandName = SearchCommand;
                 config.Input = query.SecondSearch;
                 config.ListCommand.OrderByPopularity = true;
             }, 10, (c, p) =>
@@ -102,7 +101,7 @@ namespace Wox.Plugin.Choco
         {
             return await ChocolateyResults(config =>
             {
-                config.CommandName = searchCommand;
+                config.CommandName = SearchCommand;
                 config.Input = query.SecondSearch;
                 config.ListCommand.LocalOnly = true;
             }, 10, (c, p) =>
@@ -112,7 +111,7 @@ namespace Wox.Plugin.Choco
             });
         }
 
-        private async Task<List<Result>> ChocolateyResults(Action<chocolatey.infrastructure.app.configuration.ChocolateyConfiguration> propConfig, int count, Func<ActionContext, PackageResult, bool> action)
+        private async Task<List<Result>> ChocolateyResults(Action<ChocolateyConfiguration> propConfig, int count, Func<ActionContext, PackageResult, bool> action)
         {
             List<Result> results = new List<Result>();
 
