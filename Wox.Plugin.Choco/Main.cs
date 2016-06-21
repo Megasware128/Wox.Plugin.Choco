@@ -6,6 +6,7 @@ using System.Drawing.Imaging;
 using System.IO;
 using System.Linq;
 using System.Net.Http;
+using System.Reflection;
 using System.Text;
 using System.Threading.Tasks;
 using chocolatey;
@@ -20,12 +21,31 @@ namespace Wox.Plugin.Choco
         private const string UninstallCommand = "uninstall";
         private const string searchCommand = "search";
 
-        private string tempPath = Path.GetTempPath();
+        private static readonly string tempPath = Path.GetTempPath();
+        private static readonly string shieldIconPath = $@"{tempPath}\Shield.png";
 
         private PluginInitContext context;
 
         public List<Result> Query(Query query)
         {
+            if (!Helper.IsElevated())
+                return new List<Result>(new[] { new Result()
+                {
+                    Title = "Elevate",
+                    SubTitle = "You need to elevate Wox to allow access to Chocolatey",
+                    IcoPath = shieldIconPath,
+                    Action = c => {
+                        //var startInfo = new ProcessStartInfo();
+                        //startInfo.WorkingDirectory = Environment.CurrentDirectory;
+                        //startInfo.FileName = AppDomain.CurrentDomain.FriendlyName;
+                        //startInfo.Arguments = $"query {query.RawQuery}";
+                        //startInfo.Verb = "runas";
+                        //Process.Start(startInfo);
+                        //Process.GetCurrentProcess().Kill();
+                        return true;
+                    }
+                } });
+
             return QueryAsync(query).GetAwaiter().GetResult();
         }
 
@@ -173,6 +193,9 @@ namespace Wox.Plugin.Choco
         public void Init(PluginInitContext context)
         {
             this.context = context;
+
+            if (!File.Exists(shieldIconPath))
+                using (var elevateIcon = Helper.ElevateIcon().ToBitmap()) elevateIcon.Save(shieldIconPath);
         }
     }
 }
