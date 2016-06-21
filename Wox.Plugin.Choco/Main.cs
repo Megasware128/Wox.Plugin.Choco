@@ -5,7 +5,6 @@ using System.IO;
 using System.Linq;
 using System.Net.Http;
 using System.Reflection;
-using System.Text;
 using System.Threading.Tasks;
 using chocolatey;
 using chocolatey.infrastructure.app.configuration;
@@ -34,13 +33,13 @@ namespace Wox.Plugin.Choco
                     SubTitle = "You need to elevate Wox to allow access to Chocolatey",
                     IcoPath = shieldIconPath,
                     Action = c => {
-                        //var startInfo = new ProcessStartInfo();
-                        //startInfo.WorkingDirectory = Environment.CurrentDirectory;
-                        //startInfo.FileName = AppDomain.CurrentDomain.FriendlyName;
-                        //startInfo.Arguments = $"query {query.RawQuery}";
-                        //startInfo.Verb = "runas";
-                        //Process.Start(startInfo);
-                        //Process.GetCurrentProcess().Kill();
+                        var startInfo = new ProcessStartInfo();
+                        var assembly = Assembly.GetAssembly(typeof(WoxRestarter.Program));
+                        startInfo.WorkingDirectory = Directory.GetParent(assembly.Location).FullName;
+                        startInfo.FileName = assembly.Location;
+                        startInfo.Arguments = $"--app {AppDomain.CurrentDomain.FriendlyName} -p {Process.GetCurrentProcess().Id} --query \"{query.RawQuery}\" -d {Environment.CurrentDirectory}";
+                        startInfo.UseShellExecute = true;
+                        Process.Start(startInfo);
                         return true;
                     }
                 } });
