@@ -91,7 +91,11 @@ namespace Wox.Plugin.Choco
                 config.ListCommand.OrderByPopularity = true;
             }, 10, (c, p) =>
             {
-                Process.Start(new ProcessStartInfo("choco", $"{InstallCommand} {p.Name}") { Verb = "runas" });
+                Lets.GetChocolatey().Set(config =>
+                {
+                    config.CommandName = InstallCommand;
+                    config.PackageNames = p.Name;
+                }).Run();
                 return true;
             });
         }
@@ -105,7 +109,11 @@ namespace Wox.Plugin.Choco
                 config.ListCommand.LocalOnly = true;
             }, 10, (c, p) =>
             {
-                Process.Start(new ProcessStartInfo("choco", $"{UninstallCommand} {p.Name}") { Verb = "runas" });
+                Lets.GetChocolatey().Set(config =>
+                {
+                    config.CommandName = UninstallCommand;
+                    config.PackageNames = p.Name;
+                }).Run();
                 return true;
             });
         }
