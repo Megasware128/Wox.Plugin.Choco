@@ -7,5 +7,4 @@ A wox plugin for chocolatey
 
 ---
 
-Thanks to <a href="https://github.com/james-dibble/ChocolateyExplorer">James-Dibble</a> For helping with the Choco OData Support </br>
 And to <a href="https://github.com/orzFly/Wox.Plugin.Weather">orzFLY</a> for helping with the Wox Packaging.
